@@ -10,20 +10,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.sql.*;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class NewDB {
 
     private final DBType type;
     private final Keklist plugin;
-    private static HikariConfig config = new HikariConfig();
-    private static HikariDataSource ds;
+    private static final HikariConfig config = new HikariConfig();
+    private HikariDataSource databaseSource;
 
     public NewDB(DBType dbType, Keklist plugin) {
         this.plugin = plugin;
@@ -39,6 +33,7 @@ public class NewDB {
                         file.createNewFile();
 
                     String url = "jdbc:sqlite:" + file.getPath();
+
                     config.setJdbcUrl(url);
                 }
 
@@ -56,31 +51,58 @@ public class NewDB {
 
                     url += host + ":" + port + "/" + database + options;
 
+                    config.setMaximumPoolSize(30);
+                    config.setConnectionTimeout(5000);
+                    config.setMinimumIdle(5);
+
                     config.setJdbcUrl(url);
                     config.setUsername(username);
                     config.setPassword(password);
                 }
             }
 
-            ds = new HikariDataSource(config);
+            databaseSource = new HikariDataSource(config);
             createTables();
         } catch (java.io.IOException ex) {
             ex.printStackTrace();
         } catch (ClassNotFoundException e) {
-            plugin.getLogger().severe(Keklist.getLanguage().get("database.driver-missing"));
+            plugin.getLogger().severe(Keklist.getTranslations().get("database.driver-missing"));
             Bukkit.getPluginManager().disablePlugin(plugin);
         }
     }
 
 
+    @NotNull
+    public CompletableFuture<Integer> onUpdateAsync(@NotNull @Language("SQL") String update, @Nullable Object... preparedArgs) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = databaseSource.getConnection();
+                 PreparedStatement preparedStatement = connection.prepareStatement(update)) {
+
+                if (preparedArgs != null)
+                    for (int i = 0; i < preparedArgs.length; i++) {
+                        preparedStatement.setObject(i + 1, preparedArgs[i]);
+                    }
+
+                return preparedStatement.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getSLF4JLogger().error("Failed to execute update asynchronously", e);
+                return -1;
+            }
+        }).exceptionally(throwable -> {
+            plugin.getSLF4JLogger().error("Failed to execute update asynchronously", throwable);
+            return -1;
+        }).orTimeout(15, TimeUnit.SECONDS);
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
+    @Deprecated(since = "1.0.0")
     public void onUpdate(@NotNull @Language("SQL") final String statement, Object... preparedArgs) {
         if (isConnected()) {
             new FutureTask(new Runnable() {
                 PreparedStatement preparedStatement;
 
                 public void run() {
-                    try {
+                    try (Connection connection = databaseSource.getConnection()) {
                         this.preparedStatement = connection.prepareStatement(statement);
 
                         for (int i = 0; i < preparedArgs.length; i++) {
@@ -90,7 +112,7 @@ public class NewDB {
                         this.preparedStatement.executeUpdate();
                         this.preparedStatement.close();
                     } catch (SQLException throwable) {
-                        throwable.printStackTrace();
+                        plugin.getSLF4JLogger().error("Failed to execute update", throwable);
                     }
                 }
             }, null).run();
@@ -100,67 +122,77 @@ public class NewDB {
         }
     }
 
-    public DBCon onQuery(@NotNull @Language("SQL") final String query, Object... preparedArgs) throws SQLException {
-        Connection connection = getConnection();
+    @NotNull
+    public CompletableFuture<ResultSet> onQueryAsync(@NotNull @Language("SQL") final String query, @Nullable Object... preparedArgs) {
+        if (!isConnected()) {
+            return CompletableFuture.failedFuture(new SQLException("Not connected"));
+        }
 
-        FutureTask<ResultSet> task = new FutureTask<>(new Callable<ResultSet>() {
-            public ResultSet call() throws Exception {
-                PreparedStatement ps = prepareStatement(connection, query, preparedArgs);
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = databaseSource.getConnection();
+                 PreparedStatement ps = connection.prepareStatement(query)) {
 
-                for (int i = 0; i < preparedArgs.length; i++) {
-                    ps.setObject(i + 1, preparedArgs[i]);
+                if (preparedArgs != null) {
+                    for (int i = 0; i < preparedArgs.length; i++) {
+                        ps.setObject(i + 1, preparedArgs[i]);
+                    }
                 }
 
                 return ps.executeQuery();
-            }
-        });
-
-        return new DBCon(connection, task);
-    }
-
-    public void a() throws ExecutionException, InterruptedException {
-
-        doQuery("SELECT * FROM whitelist WHERE uuid = ?", rs -> {
-            try (rs) {
-                rs.next();
-                return rs.getString(1);
             } catch (SQLException e) {
-                throw new RuntimeException(e);
+                throw new CompletionException(e);
             }
-        }, UUID.randomUUID()).get();
-    }
-
-    private Connection getConnection() throws SQLException {
-
-        DBCon db = onQuery("SELECT 1");
-        Future<ResultSet> rs = db.getResultSet();
-        Connection con = db.getConnection();
-
-
-        return ds.getConnection();
-    }
-
-    public <T> Future<T> doQuery(@Language("SQL") String sql, Function<ResultSet, T> processor, Object... params) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection con = getConnection();
-                 PreparedStatement ps = prepareStatement(con, sql, params);
-                 ResultSet rs = ps.executeQuery()) {
-                return processor.apply(rs);
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
+        }).whenComplete((resultSet, throwable) -> {
+            if (throwable != null) {
+                plugin.getSLF4JLogger().error("Failed to execute query asynchronously", throwable);
+            } else {
+                try {
+                    resultSet.close();
+                } catch (SQLException e) {
+                    plugin.getSLF4JLogger().error("Failed to close result set", e);
+                }
             }
-        });
+        }).orTimeout(15, TimeUnit.SECONDS);
     }
 
-    @NotNull
-    private PreparedStatement prepareStatement(@NotNull Connection connection, @NotNull @Language("SQL") final String sql, @Nullable Object... preparedArgs) throws SQLException {
-        PreparedStatement ps = connection.prepareStatement(sql);
+    @Nullable
+    @Deprecated(since = "1.0.0")
+    public ResultSet onQuery(@NotNull @Language("SQL") final String query, Object... preparedArgs) {
+        if (isConnected()) {
+            try (Connection connection = databaseSource.getConnection()) {
+                FutureTask<ResultSet> task = new FutureTask<>(new Callable<>() {
+                    PreparedStatement ps;
 
-        for (int i = 0; i < preparedArgs.length; i++) {
-            ps.setObject(i + 1, preparedArgs[i]);
+                    public ResultSet call() throws Exception {
+                        this.ps = connection.prepareStatement(query);
+
+                        for (int i = 0; i < preparedArgs.length; i++) {
+                            this.ps.setObject(i + 1, preparedArgs[i]);
+                        }
+
+                        return this.ps.executeQuery();
+                    }
+                });
+
+                task.run();
+                return task.get();
+            } catch (Exception e) {
+                plugin.getSLF4JLogger().error("Failed to execute query", e);
+                return null;
+            }
+        } else {
+            connect();
+            return onQuery(query);
         }
+    }
 
-        return ps;
+    public boolean isConnected() {
+        return (databaseSource != null);
+    }
+
+    public void disconnect() {
+        if (databaseSource != null)
+            databaseSource.close();
     }
 
     private void createTables() {
@@ -177,25 +209,5 @@ public class NewDB {
      */
     public enum DBType {
         MARIADB, SQLITE
-    }
-
-    private static class DBCon {
-        private final Connection con;
-        private final Future<ResultSet> rs;
-
-        public DBCon(Connection con, FutureTask<ResultSet> rs) {
-            this.con = con;
-            this.rs = rs;
-
-            rs.run();
-        }
-
-        public Connection getConnection() {
-            return con;
-        }
-
-        public Future<ResultSet> getResultSet() {
-            return rs;
-        }
     }
 }

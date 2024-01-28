@@ -238,6 +238,7 @@
         </dependency>
 
         <!-- Provided via custom loader -->
+        <!-- Database -->
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
@@ -251,6 +252,12 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>5.1.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
             <version>5.0.0-alpha.12</version>
@@ -261,11 +268,6 @@
             <artifactId>discord-webhooks</artifactId>
             <version>0.8.4</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-            <version>5.0.1</version>
         </dependency>
 
         <!-- Other -->
