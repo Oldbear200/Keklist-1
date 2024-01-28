@@ -1,4 +1,4 @@
-package de.hdg.keklist.util;
+package de.hdg.keklist.extentions;
 
 import com.djrapitops.plan.extension.CallEvents;
 import com.djrapitops.plan.extension.DataExtension;
@@ -21,7 +21,7 @@ import java.util.UUID;
 public class KekDataExtension implements DataExtension {
 
     public KekDataExtension() {
-        Keklist.getInstance().getLogger().info(Keklist.getLanguage().get("plan.enabled"));
+        Keklist.getInstance().getLogger().info(Keklist.getTranslations().get("plan.enabled"));
     }
 
     @Override

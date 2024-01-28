@@ -4,6 +4,7 @@ import com.destroystokyo.paper.event.server.PaperServerListPingEvent;
 import de.hdg.keklist.Keklist;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import java.io.File;
@@ -13,7 +14,7 @@ import java.util.Random;
 
 public class ListPingEvent implements Listener {
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onListPing(PaperServerListPingEvent event) {
         String playerIP = event.getAddress().getHostAddress();
 
@@ -35,11 +36,12 @@ public class ListPingEvent implements Listener {
 
             event.motd(Keklist.getInstance().getMiniMessage().deserialize(Keklist.getInstance().getRandomizedMotd(Keklist.RandomType.BLACKLISTED)));
 
-            if (!new File(Keklist.getInstance().getConfig().getString("blacklist.icon-file")).exists()) {
-                Keklist.getInstance().getLogger().warning(Keklist.getLanguage().get("blacklist.icon.error"));
+            if (!new File(Keklist.getInstance().getConfig().getString("blacklist.icon-file")).exists() && !Keklist.getInstance().getConfig().getString("blacklist.icon-file").equals("default")) {
+                Keklist.getInstance().getLogger().warning(Keklist.getTranslations().get("blacklist.icon.error"));
             } else {
                 try {
-                    event.setServerIcon(Keklist.getInstance().getServer().loadServerIcon(new File(Keklist.getInstance().getConfig().getString("blacklist.icon-file"))));
+                    if (!Keklist.getInstance().getConfig().getString("blacklist.icon-file").equals("default"))
+                        event.setServerIcon(Keklist.getInstance().getServer().loadServerIcon(new File(Keklist.getInstance().getConfig().getString("blacklist.icon-file"))));
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -47,7 +49,7 @@ public class ListPingEvent implements Listener {
         } else if (Keklist.getInstance().getConfig().getBoolean("whitelist.enabled") && (Keklist.getInstance().getConfig().getBoolean("whitelist.change-motd") || Keklist.getInstance().getConfig().getBoolean("whitelist.hide-online-players"))) {
             if (Keklist.getInstance().getConfig().getBoolean("whitelist.change-motd"))
                 event.motd(Keklist.getInstance().getMiniMessage().deserialize(Keklist.getInstance().getRandomizedMotd(Keklist.RandomType.WHITELISTED)));
-                
+
             if (Keklist.getInstance().getConfig().getBoolean("whitelist.hide-online-players")) {
                 Random rnd = new Random();
 

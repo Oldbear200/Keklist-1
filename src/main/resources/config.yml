@@ -1,15 +1,20 @@
 # Settings for every feature of the Keklist Paper plugin
 
 language: "en-us" # Language for the plugin
-plan-support: false # Enable support for the Plan plugin
 enable-manage-command: false # Enable the /keklist command to enable/disable the blacklist/whitelist
+date-format: "dd-MM-yyyy HH:mm" # Date format for the blacklist/whitelist GUI
+chat-notify: false # Notify the player if someone joins the server and is blacklisted/whitelisted
+
+update:
+  check: true # Check for updates
+  interval: 12 # Check for updates every x hours
 
 # Settings for the blacklist feature
 blacklist:
   enabled: true # Enable the blacklist feature
   allow-join-with-admin: false # Allows blacklisted player to join if a player with the admin-permission is online
   admin-permission: "blacklist.admin"
-  limbo: false # Experimental; Needs velocity plugin
+  limbo: false # May let the player join if nobody is online but fallback kicked; Needs velocity plugin
   icon-file: "icon.png" # The icon for the server if player is blacklisted. Put the file in the same folder as the config
 
 # Settings for the whitelist feature
@@ -25,10 +30,22 @@ whitelist:
   fake-max-range: 20-40 # Please use the format: INTEGER-INTEGER
   fake-online-range: 0-10 # Please use the format: INTEGER-INTEGER
 
+# Extentions for the plugin
+placeholderapi: false # Enable PlaceholderAPI support
+plan-support: false # Enable support for the Plan plugin
+
 # Note: If you use a proxy you need to enable 'send-floodgate-data' on the proxy's config
 # More: https://wiki.geysermc.org/floodgate/setup/
 floodgate:
   prefix: "." # Prefix for the floodgate player
+
+discord:
+  enabled: false
+  webhook-url: https://discord.com # Webhook url for the discord webhook
+  username: "Keklist"  # Username for the webhook
+  avatar-url: https://cdn.discordapp.com/attachments/1056727727991959673/1102655035290157176/keklist.png # This is the default avatar from keklist
+  events: ["blacklist_add", "blacklist_remove", "blacklist_kick", "whitelist_add", "whitelist_remove", "whitelist_kick", "limbo"] # List of events which trigger a message
+  ping-roles: ["214809157574983681"] # Pings this role on any event. NOTE: Can be empty
 
 # Settings for the database
 # This is useful to share the blacklist and whitelist between multiple servers
@@ -62,3 +79,14 @@ messages:
     whitelisted:
       - "<gold><bold>You're kicked because the server is in whitelist mode!"
       - "<gold><bold>Sorry, but you're not on the whitelist!"
+
+# Enable bstats
+# This is used to collect anonymous data about the plugin, which helps me to improve the plugin
+bstats: true
+
+# Debug mode
+# This will enable debug messages in the console
+debug: false
+
+# Don't touch it!
+config_version: 1

@@ -6,18 +6,20 @@ on:
     #branches: [ main ]
   workflow_dispatch:
 
+
 jobs:
   javadoc:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout 🙃
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
-    - name: Set up JDK 17 🛠
-      uses: actions/setup-java@v3
+    - name: Set up JDK 21 🛠
+      uses: actions/setup-java@v4
       with:
-        java-version: 17
+        java-version: 21
         distribution: 'corretto'
+        cache: 'maven'
         
     - name: Setup Maven 3.9.1 🔮
       uses: stCarolas/setup-maven@v4.5

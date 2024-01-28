@@ -1,15 +1,15 @@
-package de.hdg.keklist.util;
+package de.hdg.keklist.extentions;
 
 import com.djrapitops.plan.capability.CapabilityService;
 import com.djrapitops.plan.extension.Caller;
 import com.djrapitops.plan.extension.ExtensionService;
 import de.hdg.keklist.Keklist;
+import de.hdg.keklist.extentions.KekDataExtension;
 import lombok.Getter;
 
 import java.util.Optional;
 
 public class PlanHook {
-
 
     private @Getter Optional<Caller> caller;
 
@@ -32,9 +32,9 @@ public class PlanHook {
         try {
             caller = ExtensionService.getInstance().register(new KekDataExtension());
         } catch (IllegalStateException notEnabled) {
-            Keklist.getInstance().getLogger().warning(Keklist.getLanguage().get("plan.not-enabled"));
+            Keklist.getInstance().getLogger().warning(Keklist.getTranslations().get("plan.not-enabled"));
         } catch (IllegalArgumentException exception) {
-            Keklist.getInstance().getLogger().severe(Keklist.getLanguage().get("plan.error"));
+            Keklist.getInstance().getLogger().severe(Keklist.getTranslations().get("plan.error"));
             exception.printStackTrace();
         }
     }
